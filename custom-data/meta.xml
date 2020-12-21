@@ -1,0 +1,6 @@
+<meta>
+	<info author="SERIOUSLY?/majqqq" name="Lua data system" type="script"/>
+
+	<script src="client.lua" type="client" cache="false"/>
+	<script src="server.lua" type="server"/>
+</meta>
