@@ -33,7 +33,7 @@ end
 ]]
 
 function setCustomData(pElement, pKey, pValue, pIsLocal, pOnServerEvent)
-	local cachedTable = pIsLocal and localData[pElement] or syncedData[pElement] -- do we need data from local or synced table?
+	local cachedTable = false -- reference to table
 	local oldValue = false -- placeholder for old value
 
 	if pIsLocal then -- whether is local or not
