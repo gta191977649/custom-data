@@ -36,16 +36,22 @@ function setCustomData(pElement, pKey, pValue, pIsLocal, pOnServerEvent)
 	local cachedTable = pIsLocal and localData[pElement] or syncedData[pElement] -- do we need data from local or synced table?
 	local oldValue = false -- placeholder for old value
 
-	if not cachedTable then -- if sub-table under certain index doesn't exist...
+	if pIsLocal then -- whether is local or not
+		cachedTable = localData[pElement] -- update reference
 
-		if pIsLocal then -- whether is local or not
-			localData[pElement] = {} -- create sub-table for certain element
-		else
-			syncedData[pElement] = {} -- create sub-table for certain element
+		if not cachedTable then -- if sub table doesn't exist...
+			localData[pElement] = {} -- create it
+			cachedTable = localData[pElement] -- update reference
+		end
+	else
+		cachedTable = syncedData[pElement] -- update reference
+
+		if not cachedTable then -- if sub table doesn't exist...
+			syncedData[pElement] = {} -- create it
+			cachedTable = syncedData[pElement] -- update reference
 		end
 	end
 
-	cachedTable = pIsLocal and localData[pElement] or syncedData[pElement] -- let's reference this once again
 	oldValue = cachedTable[pKey] -- get old value for data handlers
 
 	if pValue ~= oldValue then -- if data isn't equal, process it
