@@ -114,40 +114,36 @@ function addDataHandler(pElementTypes, pKeys, pFunction, pOnServerEvent)
 	local validEvent = type(pOnServerEvent) == "string" or not pOnServerEvent -- check if it's valid type
 
 	if validTypes and validKeys and validFunction and validEvent then -- if all correct
-		local cachedData = false -- remember, reuse it's always faster rather than recreating variable each time
-		local currentSize = false -- remember, reuse it's always faster rather than recreating variable each time
-		local currentHandler = false -- reference to new handler
-		local currentHandlers = dataHandlers -- reference to main table
+		local elementType = false -- element type
+		local currentHandler = false -- reference to table
+		local currentSize = false -- new index for data
+		local packedData = {pKeys, pOnServerEvent, pFunction} -- store our packed data
 
-		pKeys = {pKeys, pOnServerEvent, pFunction} -- we need pack this into table, because it will be processed by loop
+		local elementTypes = type(pElementTypes) -- check if it's string
 
-		if type(pElementTypes) == "string" then -- if element type was passed as a string
+		if elementTypes == "string" then -- if so
+			currentHandler = dataHandlers[pElementTypes] -- store reference
 
-			if not currentHandlers[pElementTypes] then -- if sub table doesn't exist
-				currentHandlers[pElementTypes] = {} -- create it
+			if not currentHandler then -- if such index doesn't exist...
+				dataHandlers[pElementTypes] = {packedData} -- insert packed data
+			else -- otherwise
+				currentSize = #currentHandler + 1 -- get new index for data
+				currentHandler[currentSize] = packedData -- insert packed data
 			end
-
-			currentHandler = currentHandlers[pElementTypes] -- update reference
-			currentSize = #currentHandlers + 1 -- get new index for data handler
-			currentHandler[currentSize] = pKeys -- insert packed data
 		else -- otherwise
-			for i = 1, #pElementTypes do
-				cachedData = pElementTypes[i]
+			for typeID = 1, #pElementTypes do -- loop through given table
+				elementType = pElementTypes[typeID] -- get element type
+				currentHandler = dataHandlers[elementType] -- store reference
 
-				if not currentHandlers[cachedData] then -- if sub table doesn't exist
-					currentHandlers[cachedData] = {} -- create it
+				if not currentHandler then -- if such index doesn't exist...
+					dataHandlers[elementType] = {packedData} -- insert packed data
+				else -- otherwise
+					currentSize = #currentHandler + 1 -- get new index for data
+					currentHandler[currentSize] = packedData -- insert packed data
 				end
-
-				currentHandler = currentHandlers[cachedData] -- update reference
-				currentSize = #currentHandlers + 1 -- get new index for data handler
-				currentHandler[currentSize] = pKeys -- insert packed data
 			end
 		end
-		
-		return true
 	end
-
-	return false
 end
 
 --[[
