@@ -116,7 +116,7 @@ function addDataHandler(pElementTypes, pKeys, pFunction, pOnServerEvent)
 	if validTypes and validKeys and validFunction and validEvent then -- if all correct
 		local cachedData = false -- remember, reuse it's always faster rather than recreating variable each time
 		local currentSize = false -- remember, reuse it's always faster rather than recreating variable each time
-		local currentHandler = false -- reference  to new handler
+		local currentHandler = false -- reference to new handler
 		local currentHandlers = dataHandlers -- reference to main table
 
 		pKeys = {pKeys, pOnServerEvent, pFunction} -- we need pack this into table, because it will be processed by loop
