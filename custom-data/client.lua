@@ -32,6 +32,44 @@ end
 ***************************************************\
 ]]
 
+function getElementsByKey(pKey, pValue, pIsLocal, pMultipleResults)
+	local cachedTable = false
+	local requestedElements = pMultipleResults and {} or false
+	local doesHaveData = false
+
+	if pIsLocal then -- reference to local or synced data
+		cachedTable = localData
+	else
+		cachedTable = syncedData
+	end
+
+	for element, _ in pairs(cachedTable) do -- loop through all elements
+		doesHaveData = getCustomData(element, pKey, pIsLocal) -- search for the elements which meets conditions
+
+		if doesHaveData then -- if so
+
+			if pValue and pValue ~= doesHaveData then -- in case if we wanna filter also by value
+				return false
+			end
+
+			if pMultipleResults then -- if we wanna multiple results
+				requestedElements[#requestedElements + 1] = element
+			else -- otherwise
+				requestedElements = element
+				break
+			end
+		end
+	end
+
+	return requestedElements -- return requested elements
+end
+
+--[[
+/***************************************************
+
+***************************************************\
+]]
+
 function setCustomData(pElement, pKey, pValue, pIsLocal, pOnServerEvent, pResponsibleElement)
 	local cachedTable = false -- reference to table
 	local oldValue = false -- placeholder for old value
