@@ -1,8 +1,25 @@
 local localData = {} -- store our local (non-synced data)
 local syncedData = {} -- store our synced data
-local queuedData = {} -- store our data which will be processed in one trigger
+local bufferData = {} -- store our data which will be processed via timer
+local batchData = {} -- store our data which will be processed via function
 local playerElements = createElement("playerElement", "playerElements") -- this element will hold our players which are ready to accept events, it's solution for "Server triggered client-side event onClientDoSomeMagic, but event is not added client-side.". We would need that aswell for binding handlers.
 local otherElements = createElement("otherElement", "otherElements") -- this element will do the same, but it's desired for non-player elements
+
+--[[
+/***************************************************
+
+***************************************************\
+]]
+
+local function bufferFunction(pBuffer, pReceivers, pResponsibleElement)
+	local validReceivers = isElement(pReceivers) or type(pReceivers) == "table" -- make sure that receiver is a valid element or array table
+
+	if validReceivers then -- if so
+		triggerClientEvent(pReceivers, "onClientReceiveData", pResponsibleElement or playerElements, true, bufferData[pBuffer]) -- send as buffered data
+	end
+
+	bufferData[pBuffer] = nil -- clear our queue
+end
 
 --[[
 /***************************************************
@@ -32,7 +49,45 @@ end
 ***************************************************\
 ]]
 
-function setCustomData(pElement, pKey, pValue, pIsLocal, pOnServerEvent, pBuffer, pTimeout)
+function getElementsByKey(pKey, pValue, pIsLocal, pMultipleResults)
+	local cachedTable = false
+	local requestedElements = pMultipleResults and {} or false
+	local doesHaveData = false
+
+	if pIsLocal then -- reference to local or synced data
+		cachedTable = localData
+	else
+		cachedTable = syncedData
+	end
+
+	for element, _ in pairs(cachedTable) do -- loop through all elements
+		doesHaveData = getCustomData(element, pKey, pIsLocal) -- search for the elements which meets conditions
+
+		if doesHaveData then -- if so
+
+			if pValue and pValue ~= doesHaveData then -- in case if we wanna filter also by value
+				return false
+			end
+
+			if pMultipleResults then -- if we wanna multiple results
+				requestedElements[#requestedElements + 1] = element
+			else -- otherwise
+				requestedElements = element
+				break
+			end
+		end
+	end
+
+	return requestedElements -- return requested elements
+end
+
+--[[
+/***************************************************
+
+***************************************************\
+]]
+
+function setCustomData(pElement, pKey, pValue, pIsLocal, pReceivers, pResponsibleElement, pOnServerEvent, pBuffer, pTimeout)
 	local cachedTable = false -- reference to table
 	local oldValue = false -- placeholder for old value
 
@@ -59,30 +114,43 @@ function setCustomData(pElement, pKey, pValue, pIsLocal, pOnServerEvent, pBuffer
 		cachedTable[pKey] = pValue -- set our value
 
 		if not pIsLocal then -- if our data isn't local, we want to it sync with client
+			pReceivers = pReceivers == "all" and playerElements or pReceivers -- clarify who will receive sync event
 
-			if pBuffer then -- if we want to send it in one big trigger :)
-				local existingBuffer = queuedData[pBuffer] -- let's check if there's buffer under such name
+			if pBuffer then -- if we want to send it in one big trigger
 
-				if not existingBuffer then -- if doesn't exist
-					local bufferFunction = false -- placeholder for our buffer function
+				if pTimeout == -1 then -- if it's batched data
+					local existingBatch = batchData[pBuffer]
 
-					queuedData[pBuffer] = {} -- create a sub table using it's name
-					existingBuffer = queuedData[pBuffer] -- update reference
-					existingBuffer[1] = {pElement, pKey, pValue, pOnServerEvent} -- insert data to queue on 1st index, because table it's empty, so there's no need for getting it's length
+					if not existingBatch then -- if it doesn't exist
+						batchData[pBuffer] = {}
+						existingBatch = batchData[pBuffer]
+						existingBatch[1] = {pElement, pKey, pValue, pOnServerEvent, pResponsibleElement, pReceivers}
+					else -- otherwise, let's simply add it to queue
+						local batchSize = #existingBatch + 1
 
-					bufferFunction = function()
-						triggerClientEvent(playerElements, "onClientReceiveData", getRandomPlayer() or playerElements, true, queuedData[pBuffer]) -- send as buffered data
-						queuedData[pBuffer] = nil -- after data was sent, clear our queue
+						existingBatch[batchSize] = {pElement, pKey, pValue, pOnServerEvent, pResponsibleElement, pReceivers}
 					end
+				else -- otherwise
+					local existingBuffer = bufferData[pBuffer] -- let's check if there's buffer under such name
 
-					setTimer(bufferFunction, pTimeout, 1) -- use timer to pass data with delay
-				else -- otherwise, let's simply add it to queue
-					local bufferSize = #existingBuffer + 1 -- get length of table
+					if not existingBuffer then -- if doesn't exist
+						bufferData[pBuffer] = {} -- create a sub table using it's name
+						existingBuffer = bufferData[pBuffer] -- update reference
+						existingBuffer[1] = {pElement, pKey, pValue, pOnServerEvent, pResponsibleElement} -- insert data to queue on 1st index, because table it's empty, so there's no need for getting it's length
 
-					existingBuffer[bufferSize] = {pElement, pKey, pValue, pOnServerEvent} -- add data to queue
+						setTimer(bufferFunction, pTimeout, 1, pBuffer, pReceivers, pResponsibleElement) -- use timer to pass data with delay
+					else -- otherwise, let's simply add it to queue
+						local bufferSize = #existingBuffer + 1 -- get length of table
+
+						existingBuffer[bufferSize] = {pElement, pKey, pValue, pOnServerEvent, pResponsibleElement} -- add data to queue
+					end
 				end
 			else -- otherwise
-				triggerClientEvent(playerElements, "onClientReceiveData", getRandomPlayer() or playerElements, false, pElement, pKey, pValue, pOnServerEvent) -- send simply
+				local validReceivers = isElement(pReceivers) or type(pReceivers) == "table" -- make sure that receiver is a valid element or array table
+
+				if validReceivers then
+					triggerClientEvent(pReceivers, "onClientReceiveData", pResponsibleElement or playerElements, false, pElement, pKey, pValue, pOnServerEvent, pResponsibleElement) -- send simply
+				end
 			end
 		end
 	end
@@ -96,14 +164,73 @@ end
 ***************************************************\
 ]]
 
+function forceBatchDataSync(pQueue)
+	if pQueue then -- if we passed queue name
+		local dataQueue = batchData[pQueue] -- check if it exists
+
+		if dataQueue then -- if so
+			dataQueue = dataQueue[1] -- move us to 1st index
+
+			if dataQueue then -- if such data exists
+				local receiversList = dataQueue[6]
+				local validReceivers = isElement(receiversList) or type(receiversList) == "table" -- make sure that receiver is a valid element or array table
+
+				if validReceivers then
+					local responsibleElement = dataQueue[5]
+
+					triggerClientEvent(receiversList, "onClientReceiveData", responsibleElement or playerElements, true, batchData[pQueue]) -- send as batched data
+				end
+
+				batchData[pQueue] = nil -- clear our queue
+
+				return true
+			end
+		end
+	else -- otherwise, force all queues to sync
+		local dataPackage = false
+		local receiversList = false
+		local validReceivers = false
+		local responsibleElement = false
+
+		for queueName, queueData in pairs(batchData) do
+			dataPackage = queueData[1]
+
+			if dataPackage then
+				receiversList = dataPackage[6]
+
+				if receiversList then
+					validReceivers = isElement(receiversList) or type(receiversList) == "table" -- make sure that receiver is a valid element or array table
+
+					if validReceivers then
+						responsibleElement = dataPackage[5]
+
+						triggerClientEvent(receiversList, "onClientReceiveData", responsibleElement or playerElements, true, queueData) -- send as batched data
+					end
+				end
+			end
+		end
+
+		batchData = {} -- reset batch table
+
+		return true
+	end
+
+	return false
+end
+
+--[[
+/***************************************************
+
+***************************************************\
+]]
+
 function onServerPlayerReady()
-	if client then -- let's check if it's valid player - remember, do not use 'source'!
+	if client then -- let's check if it's valid player - remember, do not use 'source'
 		setElementParent(client, playerElements) -- add player to our special group of "ready players"
-		triggerClientEvent(client, "onClientDataSync", client, syncedData) -- we need to send copy of server-side data to client, otherwise client wouldn't have it!
 
-		local element, key, value = setCustomData(client, "Key", "Value", false, nil, true, 1000)
+		triggerClientEvent(client, "onClientDataSync", client, syncedData) -- we need to send copy of server-side data to client, otherwise client wouldn't have it
 
-		--outputChatBox("Element: "..tostring(element)..", Key: "..key..", Value: "..tostring(value)) -- Would print something like: "Element: userdata: 00000009, Key: Key, Value: Value" - just in case if you need this data
+		setCustomData(client, "Key", "Value", false, "all", client, "onClientKeyChanged", "queue_1", 1000)
 	end
 end
 addEvent("onServerPlayerReady", true)

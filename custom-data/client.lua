@@ -32,7 +32,7 @@ end
 ***************************************************\
 ]]
 
-function setCustomData(pElement, pKey, pValue, pIsLocal, pOnServerEvent)
+function setCustomData(pElement, pKey, pValue, pIsLocal, pOnServerEvent, pResponsibleElement)
 	local cachedTable = false -- reference to table
 	local oldValue = false -- placeholder for old value
 
@@ -57,7 +57,7 @@ function setCustomData(pElement, pKey, pValue, pIsLocal, pOnServerEvent)
 	if pValue ~= oldValue then -- if data isn't equal, process it
 		cachedTable[pKey] = pValue -- set our value
 
-		handleDataChange(pElement, pKey, oldValue, pValue, pOnServerEvent) -- handle our functions (if there's any)
+		handleDataChange(pElement, pKey, oldValue, pValue, pOnServerEvent, pResponsibleElement) -- handle our functions (if there's any)
 	end
 
 	return pElement, pKey, pValue -- perhaps, you would need those values afterwards, so let's return them.
@@ -73,11 +73,12 @@ function addDataHandler(pElementTypes, pKeys, pFunction, pOnServerEvent)
 	local validTypes = type(pElementTypes) == "string" or type(pElementTypes) == "table" -- check if it's valid type
 	local validKeys = type(pKeys) == "string" or type(pKeys) == "table" -- check if it's valid type
 	local validFunction = type(pFunction) == "function" -- check if it's valid type
-	local validEvent = type(pOnServerEvent) == "string" or type(pOnServerEvent) == "nil" -- check if it's valid type
+	local validEvent = type(pOnServerEvent) == "string" or not pOnServerEvent -- check if it's valid type
 
 	if validTypes and validKeys and validFunction and validEvent then -- if all correct
-		local cachedData = false -- remember, reuse it's always faster rather than recreating variable each time :)
-		local currentSize = false -- remember, reuse it's always faster rather than recreating variable each time :)
+		local cachedData = false -- remember, reuse it's always faster rather than recreating variable each time
+		local currentSize = false -- remember, reuse it's always faster rather than recreating variable each time
+		local currentHandler = false -- reference  to new handler
 		local currentHandlers = dataHandlers -- reference to main table
 
 		pKeys = {pKeys, pOnServerEvent, pFunction} -- we need pack this into table, because it will be processed by loop
@@ -88,9 +89,9 @@ function addDataHandler(pElementTypes, pKeys, pFunction, pOnServerEvent)
 				currentHandlers[pElementTypes] = {} -- create it
 			end
 
-			currentHandlers = currentHandlers[pElementTypes] -- update reference
+			currentHandler = currentHandlers[pElementTypes] -- update reference
 			currentSize = #currentHandlers + 1 -- get new index for data handler
-			currentHandlers[currentSize] = pKeys -- insert packed data
+			currentHandler[currentSize] = pKeys -- insert packed data
 		else -- otherwise
 			for i = 1, #pElementTypes do
 				cachedData = pElementTypes[i]
@@ -99,12 +100,16 @@ function addDataHandler(pElementTypes, pKeys, pFunction, pOnServerEvent)
 					currentHandlers[cachedData] = {} -- create it
 				end
 
-				currentHandlers = currentHandlers[cachedData] -- update reference
+				currentHandler = currentHandlers[cachedData] -- update reference
 				currentSize = #currentHandlers + 1 -- get new index for data handler
-				currentHandlers[currentSize] = pKeys -- insert packed data
+				currentHandler[currentSize] = pKeys -- insert packed data
 			end
 		end
+		
+		return true
 	end
+
+	return false
 end
 
 --[[
@@ -113,7 +118,7 @@ end
 ***************************************************\
 ]]
 
-function handleDataChange(pElement, pKey, pOldValue, pNewValue, pOnServerEvent)
+function handleDataChange(pElement, pKey, pOldValue, pNewValue, pOnServerEvent, pResponsibleElement)
 	local isValidElement = isElement(pElement) -- we want element to exist at the time when handler was processed
 
 	if isValidElement then
@@ -121,11 +126,11 @@ function handleDataChange(pElement, pKey, pOldValue, pNewValue, pOnServerEvent)
 		local elementHandlers = dataHandlers[elementType] -- check if there's any handler for this type of element
 
 		if elementHandlers then -- yup, apparently there is something
-			local handlerData = false -- remember, reuse it's always faster rather than recreating variable each time :)
-			local handlerKeys = false -- remember, reuse it's always faster rather than recreating variable each time :)
-			local handlerKey = false -- remember, reuse it's always faster rather than recreating variable each time :)
-			local handlerServerEvent = false -- remember, reuse it's always faster rather than recreating variable each time :)
-			local handlerFunction = false -- remember, reuse it's always faster rather than recreating variable each time :)
+			local handlerData = false -- remember, reuse it's always faster rather than recreating variable each time
+			local handlerKeys = false -- remember, reuse it's always faster rather than recreating variable each time
+			local handlerKey = false -- remember, reuse it's always faster rather than recreating variable each time
+			local handlerServerEvent = false -- remember, reuse it's always faster rather than recreating variable each time
+			local handlerFunction = false -- remember, reuse it's always faster rather than recreating variable each time
 
 			for i = 1, #elementHandlers do -- process our handlers by loop
 				handlerData = elementHandlers[i]
@@ -138,14 +143,14 @@ function handleDataChange(pElement, pKey, pOldValue, pNewValue, pOnServerEvent)
 					if type(handlerKeys) == "string" then -- if key is a string
 
 						if handlerKeys == pKey then -- and it's equal to called key
-							handlerFunction(pElement, pKey, pOldValue, pNewValue, pOnServerEvent)
+							handlerFunction(pElement, pKey, pOldValue, pNewValue, pOnServerEvent, pResponsibleElement)
 						end
 					else -- otherwise
 						for i = 1, #handlerKeys do
 							handlerKey = handlerKeys[i]
 
 							if handlerKey == pKey then -- it's equal to called key
-								handlerFunction(pElement, pKey, pOldValue, pNewValue, pOnServerEvent)
+								handlerFunction(pElement, pKey, pOldValue, pNewValue, pOnServerEvent, pResponsibleElement)
 							end
 						end
 					end
@@ -161,10 +166,10 @@ end
 ***************************************************\
 ]]
 
-function onClientDataHandler(pElement, pKey, pOldValue, pNewValue, pOnServerEvent)
-	print("onClientDataHandler got triggered :)")
+function onClientDataHandler(pElement, pKey, pOldValue, pNewValue, pOnServerEvent, pResponsibleElement)
+	print("onClientDataHandler got triggered at key: "..pKey.." - responsible element: "..inspect(pResponsibleElement))
 end
-addDataHandler("player", "Key", onClientDataHandler, nil)
+addDataHandler("player", {"Key", "Key 2"}, onClientDataHandler, "onClientKeyChanged")
 
 --[[
 /***************************************************
@@ -191,27 +196,30 @@ function onClientReceiveData(...)
 	local keyToSet = false -- declare it once for better readability, and later reuse it
 	local valueToSet = false -- declare it once for better readability, and later reuse it
 	local serverEventToSet = false -- declare it once for better readability, and later reuse it
+	local responsibleElementToSet = false -- declare it once for better readability, and later reuse it
 
 	if isBuffer then -- if yes, then use loop to iterate over table
 		local dataPackage = dataFromServer[2]
-		local cachedIndex = false
+		local dataID = false
 
 		for i = 1, #dataPackage do
-			cachedIndex = dataPackage[i]
-			elementToSet = cachedIndex[1]
-			keyToSet = cachedIndex[2]
-			valueToSet = cachedIndex[3]
-			serverEventToSet = cachedIndex[4]
+			dataID = dataPackage[i]
+			elementToSet = dataID[1]
+			keyToSet = dataID[2]
+			valueToSet = dataID[3]
+			serverEventToSet = dataID[4]
+			responsibleElementToSet = dataID[5]
 
-			setCustomData(elementToSet, keyToSet, valueToSet, false, serverEventToSet)
+			setCustomData(elementToSet, keyToSet, valueToSet, false, serverEventToSet, responsibleElementToSet)
 		end
 	else -- otherwise process normally
 		elementToSet = dataFromServer[2]
 		keyToSet = dataFromServer[3]
 		valueToSet = dataFromServer[4]
 		serverEventToSet = dataFromServer[5]
+		responsibleElementToSet = dataFromServer[6]
 
-		setCustomData(elementToSet, keyToSet, valueToSet, false, serverEventToSet)
+		setCustomData(elementToSet, keyToSet, valueToSet, false, serverEventToSet, responsibleElementToSet)
 	end
 end
 addEvent("onClientReceiveData", true)
@@ -224,7 +232,7 @@ addEventHandler("onClientReceiveData", root, onClientReceiveData)
 ]]
 
 function onClientResourceStart()
-	triggerServerEvent("onServerPlayerReady", localPlayer) -- let's tell server that client part is ready :)
+	triggerServerEvent("onServerPlayerReady", localPlayer) -- let's tell server that client part is ready
 end
 addEventHandler("onClientResourceStart", resourceRoot, onClientResourceStart)
 
