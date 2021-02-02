@@ -143,7 +143,11 @@ function addDataHandler(pElementTypes, pKeys, pFunction, pOnServerEvent)
 				end
 			end
 		end
+
+		return true
 	end
+
+	return false
 end
 
 --[[
