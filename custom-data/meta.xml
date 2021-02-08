@@ -1,7 +1,12 @@
 <meta>
 	<info author="SERIOUSLY?/majqqq" name="Lua data system" type="script"/>
 	<min_mta_version client="1.5.8-9.20821.0" server="1.5.8-9.20821.0"/>
-
+	<export function="getCustomData" type="shared"/>
+	<export function="getElementsByKey" type="shared"/>
+	<export function="setCustomData" type="shared"/>
+	<export function="forceBatchDataSync" type="server"/>
+	<export function="addDataHandler" type="client"/>
+	
 	<script src="client.lua" type="client" cache="false"/>
 	<script src="server.lua" type="server"/>
 </meta>

@@ -70,7 +70,7 @@ end
 ***************************************************\
 ]]
 
-function setCustomData(pElement, pKey, pValue, pIsLocal, pOnServerEvent, pResponsibleElement)
+function setCustomData(pElement, pKey, pValue, pIsLocal, pOnServerEvent, pSyncer)
 	local cachedTable = false -- reference to table
 	local oldValue = false -- placeholder for old value
 
@@ -95,7 +95,7 @@ function setCustomData(pElement, pKey, pValue, pIsLocal, pOnServerEvent, pRespon
 	if pValue ~= oldValue then -- if data isn't equal, process it
 		cachedTable[pKey] = pValue -- set our value
 
-		handleDataChange(pElement, pKey, oldValue, pValue, pOnServerEvent, pResponsibleElement) -- handle our functions (if there's any)
+		handleDataChange(pElement, pKey, oldValue, pValue, pOnServerEvent, pSyncer) -- handle our functions (if there's any)
 	end
 
 	return pElement, pKey, pValue -- perhaps, you would need those values afterwards, so let's return them.
@@ -156,7 +156,7 @@ end
 ***************************************************\
 ]]
 
-function handleDataChange(pElement, pKey, pOldValue, pNewValue, pOnServerEvent, pResponsibleElement)
+function handleDataChange(pElement, pKey, pOldValue, pNewValue, pOnServerEvent, pSyncer)
 	local isValidElement = isElement(pElement) -- we want element to exist at the time when handler was processed
 
 	if isValidElement then
@@ -181,14 +181,14 @@ function handleDataChange(pElement, pKey, pOldValue, pNewValue, pOnServerEvent, 
 					if type(handlerKeys) == "string" then -- if key is a string
 
 						if handlerKeys == pKey then -- and it's equal to called key
-							handlerFunction(pElement, pKey, pOldValue, pNewValue, pOnServerEvent, pResponsibleElement)
+							handlerFunction(pElement, pKey, pOldValue, pNewValue, pOnServerEvent, pSyncer)
 						end
 					else -- otherwise
 						for i = 1, #handlerKeys do
 							handlerKey = handlerKeys[i]
 
 							if handlerKey == pKey then -- it's equal to called key
-								handlerFunction(pElement, pKey, pOldValue, pNewValue, pOnServerEvent, pResponsibleElement)
+								handlerFunction(pElement, pKey, pOldValue, pNewValue, pOnServerEvent, pSyncer)
 							end
 						end
 					end
@@ -204,8 +204,8 @@ end
 ***************************************************\
 ]]
 
-function onClientDataHandler(pElement, pKey, pOldValue, pNewValue, pOnServerEvent, pResponsibleElement)
-	print("onClientDataHandler got triggered at key: "..pKey.." - responsible element: "..inspect(pResponsibleElement))
+function onClientDataHandler(pElement, pKey, pOldValue, pNewValue, pOnServerEvent, pSyncer)
+	print("onClientDataHandler got triggered at key: "..pKey.." - syncer element: "..inspect(pSyncer))
 end
 addDataHandler("player", {"Key", "Key 2"}, onClientDataHandler, "onClientKeyChanged")
 

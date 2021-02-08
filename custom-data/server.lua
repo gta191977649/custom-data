@@ -11,11 +11,11 @@ local otherElements = createElement("otherElement", "otherElements") -- this ele
 ***************************************************\
 ]]
 
-local function bufferFunction(pBuffer, pReceivers, pResponsibleElement)
+local function bufferFunction(pBuffer, pReceivers, pSyncer)
 	local validReceivers = isElement(pReceivers) or type(pReceivers) == "table" -- make sure that receiver is a valid element or array table
 
 	if validReceivers then -- if so
-		triggerClientEvent(pReceivers, "onClientReceiveData", pResponsibleElement or playerElements, true, bufferData[pBuffer]) -- send as buffered data
+		triggerClientEvent(pReceivers, "onClientReceiveData", pSyncer or playerElements, true, bufferData[pBuffer]) -- send as buffered data
 	end
 
 	bufferData[pBuffer] = nil -- clear our queue
@@ -87,7 +87,7 @@ end
 ***************************************************\
 ]]
 
-function setCustomData(pElement, pKey, pValue, pIsLocal, pReceivers, pResponsibleElement, pOnServerEvent, pBuffer, pTimeout)
+function setCustomData(pElement, pKey, pValue, pIsLocal, pReceivers, pSyncer, pOnServerEvent, pBuffer, pTimeout)
 	local cachedTable = false -- reference to table
 	local oldValue = false -- placeholder for old value
 
@@ -124,11 +124,11 @@ function setCustomData(pElement, pKey, pValue, pIsLocal, pReceivers, pResponsibl
 					if not existingBatch then -- if it doesn't exist
 						batchData[pBuffer] = {}
 						existingBatch = batchData[pBuffer]
-						existingBatch[1] = {pElement, pKey, pValue, pOnServerEvent, pResponsibleElement, pReceivers}
+						existingBatch[1] = {pElement, pKey, pValue, pOnServerEvent, pSyncer, pReceivers}
 					else -- otherwise, let's simply add it to queue
 						local batchSize = #existingBatch + 1
 
-						existingBatch[batchSize] = {pElement, pKey, pValue, pOnServerEvent, pResponsibleElement, pReceivers}
+						existingBatch[batchSize] = {pElement, pKey, pValue, pOnServerEvent, pSyncer, pReceivers}
 					end
 				else -- otherwise
 					local existingBuffer = bufferData[pBuffer] -- let's check if there's buffer under such name
@@ -136,20 +136,20 @@ function setCustomData(pElement, pKey, pValue, pIsLocal, pReceivers, pResponsibl
 					if not existingBuffer then -- if doesn't exist
 						bufferData[pBuffer] = {} -- create a sub table using it's name
 						existingBuffer = bufferData[pBuffer] -- update reference
-						existingBuffer[1] = {pElement, pKey, pValue, pOnServerEvent, pResponsibleElement} -- insert data to queue on 1st index, because table it's empty, so there's no need for getting it's length
+						existingBuffer[1] = {pElement, pKey, pValue, pOnServerEvent, pSyncer} -- insert data to queue on 1st index, because table it's empty, so there's no need for getting it's length
 
-						setTimer(bufferFunction, pTimeout, 1, pBuffer, pReceivers, pResponsibleElement) -- use timer to pass data with delay
+						setTimer(bufferFunction, pTimeout, 1, pBuffer, pReceivers, pSyncer) -- use timer to pass data with delay
 					else -- otherwise, let's simply add it to queue
 						local bufferSize = #existingBuffer + 1 -- get length of table
 
-						existingBuffer[bufferSize] = {pElement, pKey, pValue, pOnServerEvent, pResponsibleElement} -- add data to queue
+						existingBuffer[bufferSize] = {pElement, pKey, pValue, pOnServerEvent, pSyncer} -- add data to queue
 					end
 				end
 			else -- otherwise
 				local validReceivers = isElement(pReceivers) or type(pReceivers) == "table" -- make sure that receiver is a valid element or array table
 
 				if validReceivers then
-					triggerClientEvent(pReceivers, "onClientReceiveData", pResponsibleElement or playerElements, false, pElement, pKey, pValue, pOnServerEvent, pResponsibleElement) -- send simply
+					triggerClientEvent(pReceivers, "onClientReceiveData", pSyncer or playerElements, false, pElement, pKey, pValue, pOnServerEvent, pSyncer) -- send simply
 				end
 			end
 		end
@@ -176,9 +176,9 @@ function forceBatchDataSync(pQueue)
 				local validReceivers = isElement(receiversList) or type(receiversList) == "table" -- make sure that receiver is a valid element or array table
 
 				if validReceivers then
-					local responsibleElement = dataQueue[5]
+					local syncerElement = dataQueue[5]
 
-					triggerClientEvent(receiversList, "onClientReceiveData", responsibleElement or playerElements, true, batchData[pQueue]) -- send as batched data
+					triggerClientEvent(receiversList, "onClientReceiveData", syncerElement or playerElements, true, batchData[pQueue]) -- send as batched data
 				end
 
 				batchData[pQueue] = nil -- clear our queue
@@ -190,7 +190,7 @@ function forceBatchDataSync(pQueue)
 		local dataPackage = false
 		local receiversList = false
 		local validReceivers = false
-		local responsibleElement = false
+		local syncerElement = false
 
 		for queueName, queueData in pairs(batchData) do
 			dataPackage = queueData[1]
@@ -202,9 +202,9 @@ function forceBatchDataSync(pQueue)
 					validReceivers = isElement(receiversList) or type(receiversList) == "table" -- make sure that receiver is a valid element or array table
 
 					if validReceivers then
-						responsibleElement = dataPackage[5]
+						syncerElement = dataPackage[5]
 
-						triggerClientEvent(receiversList, "onClientReceiveData", responsibleElement or playerElements, true, queueData) -- send as batched data
+						triggerClientEvent(receiversList, "onClientReceiveData", syncerElement or playerElements, true, queueData) -- send as batched data
 					end
 				end
 			end
