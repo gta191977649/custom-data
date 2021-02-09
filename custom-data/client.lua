@@ -111,16 +111,50 @@ function addDataHandler(pElementTypes, pKeys, pFunction, pOnServerEvent)
 	local validTypes = type(pElementTypes) == "string" or type(pElementTypes) == "table" -- check if it's valid type
 	local validKeys = type(pKeys) == "string" or type(pKeys) == "table" -- check if it's valid type
 	local validFunction = type(pFunction) == "function" -- check if it's valid type
-	local validEvent = type(pOnServerEvent) == "string" or not pOnServerEvent -- check if it's valid type
+	local validEvent = type(pOnServerEvent) == "string" or type(pOnServerEvent) == "table" or not pOnServerEvent -- check if it's valid type
 
 	if validTypes and validKeys and validFunction and validEvent then -- if all correct
 		local elementType = false -- element type
 		local currentHandler = false -- reference to table
 		local currentSize = false -- new index for data
-		local isKeysTable = type(pKeys) == "table" -- check if it's table
-		local keysCount = isKeysTable and #pKeys or nil -- if so, save keys count - we will use them later
-		local packedData = {pKeys, pOnServerEvent, pFunction, isKeysTable, keysCount} -- store our packed data
 
+		local isKeysTable = type(pKeys) == "table" -- check if it's table
+		local keysCount = isKeysTable and #pKeys or false -- if so, save keys count, otherwise make it boolean
+		local requireKeyMatching = isKeysTable and keysCount > 0 or not isKeysTable -- check whether we need to verify key
+		local newKeys = requireKeyMatching and {} or false -- if so, create table, otherwise make it boolean
+
+		local isEventsTable = type(pOnServerEvent) == "table" -- check if it's table
+		local eventsCount = isEventsTable and #pOnServerEvent or 0 -- if so, save events count - we will use them later
+		local requireEventMatching = isEventsTable and eventsCount > 0 or not isEventsTable -- check whether we need to verify event
+		local newEvents = requireEventMatching and {} or false -- if so, create table, otherwise make it boolean
+
+		if requireKeyMatching then -- if we require key matching
+			local keyName = false -- save key name here
+
+			if isKeysTable then -- if key is passed as table
+				for keyID = 1, keysCount do -- loop through each key
+					keyName = pKeys[keyID] -- update variable
+					newKeys[keyName] = true -- insert key name as index in new table
+				end
+			else -- otherwise
+				newKeys[pKeys] = true -- ditto, but we don't need loop here
+			end
+		end
+
+		if requireEventMatching then -- if we require event matching
+			local eventName = false -- save event name here
+
+			if isEventsTable then -- if event is passed as table
+				for eventID = 1, eventsCount do -- loop through each event
+					eventName = pOnServerEvent[eventID] -- update variable
+					newEvents[eventName] = true -- insert event name as index in new table
+				end
+			else -- otherwise
+				newEvents[pOnServerEvent] = true -- ditto, but we don't need loop here
+			end
+		end
+
+		local packedData = {newKeys, newEvents, pFunction, requireKeyMatching, requireEventMatching} -- store our packed data
 		local elementTypes = type(pElementTypes) -- check if it's string
 
 		if elementTypes == "string" then -- if so
@@ -171,37 +205,24 @@ function handleDataChange(pElement, pKey, pOldValue, pNewValue, pOnServerEvent, 
 			local handlerKey = false -- remember, reuse it's always faster rather than recreating variable each time
 			local handlerServerEvent = false -- remember, reuse it's always faster rather than recreating variable each time
 			local handlerFunction = false -- remember, reuse it's always faster rather than recreating variable each time
-			local isKeysTable = false -- remember, reuse it's always faster rather than recreating variable each time
-			local keysCount = false -- remember, reuse it's always faster rather than recreating variable each time
+			local requireKeyMatching = false -- remember, reuse it's always faster rather than recreating variable each time
+			local requireEventMatching = false -- remember, reuse it's always faster rather than recreating variable each time
+			local isKeyEqual = false -- remember, reuse it's always faster rather than recreating variable each time
+			local isEventEqual = false -- remember, reuse it's always faster rather than recreating variable each time
 
 			for handlerID = 1, #elementHandlers do -- process our handlers by loop
 				handlerData = elementHandlers[handlerID] -- cache target table to reduce indexing
+				handlerKeys = handlerData[1] -- get our data
 				handlerServerEvent = handlerData[2] -- get our data
+				requireKeyMatching = handlerData[4] -- get our data
+				requireEventMatching = handlerData[5] -- get our data
 
-				if handlerServerEvent == pOnServerEvent then -- if server event matches
-					handlerKeys = handlerData[1] -- get our data
+				isKeyEqual = requireKeyMatching and handlerKeys[pKey] or not requireKeyMatching and true or false -- verify whether key is required or not
+				isEventEqual = requireEventMatching and handlerServerEvent[pOnServerEvent] or not requireEventMatching and true or false -- verify whether event is required or not
+
+				if isKeyEqual and isEventEqual then -- if everything fine
 					handlerFunction = handlerData[3] -- get our data
-					isKeysTable = handlerData[4] -- get our data
-
-					if isKeysTable then -- if it's table
-						keysCount = handlerData[5] -- get keys count
-
-						if keysCount == 0 then -- if table is empty, process function without checking key
-							handlerFunction(pElement, pKey, pOldValue, pNewValue, pOnServerEvent, pSyncer) -- process handler function
-						else -- otherwise
-							for keyID = 1, #handlerKeys do -- loop through all keys
-								handlerKey = handlerKeys[keyID] -- cache target table to reduce indexing
-
-								if handlerKey == pKey then -- if key matches
-									handlerFunction(pElement, pKey, pOldValue, pNewValue, pOnServerEvent, pSyncer) -- process handler function
-								end
-							end
-						end
-					else -- otherwise
-						if handlerKeys == pKey then -- if key matches
-							handlerFunction(pElement, pKey, pOldValue, pNewValue, pOnServerEvent, pSyncer) -- process handler function
-						end
-					end
+					handlerFunction(pElement, pKey, pOldValue, pNewValue, pOnServerEvent, pSyncer) -- process function
 				end
 			end
 		end
@@ -217,7 +238,7 @@ end
 function onClientDataHandler(pElement, pKey, pOldValue, pNewValue, pOnServerEvent, pSyncer)
 	print("onClientDataHandler got triggered at key: "..pKey.." - syncer element: "..inspect(pSyncer))
 end
-addDataHandler("player", {"Key", "Key 2"}, onClientDataHandler, "onClientKeyChanged")
+addDataHandler("player", {"Key 2", "Key"}, onClientDataHandler, "onClientKeyChanged")
 
 --[[
 /***************************************************
