@@ -7,7 +7,7 @@ I want to thanks for a [very special person](https://github.com/IIYAMA12) which 
 A more efficient replacement for internal MTA:SA data system called element data. It is:
 - Faster
 - Way more adjustable, in terms of sending data, including data reduction techniques such as buffer and batching (things must have, especially when you are dealing with a lot of separated data)
-- Provides data handlers, your own functions which will trigger on data change - after meeting certain conditions, which are: element type, key name, and server event.
+- Provides data handlers, your own functions which will trigger on data change - after meeting certain conditions, which are: element type, data type, key name, and server event.
 
 # Detailed guide, which also covers few important topics
 [See forum topic for all details](https://forum.mtasa.com/topic/127520-tut-lua-tables-as-a-efficient-data-system-custom-element-data/)
