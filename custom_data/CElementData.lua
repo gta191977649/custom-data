@@ -122,7 +122,7 @@ function addDataHandler(pElementTypes, pTypes, pKeys, pFunction, pServerEvent)
 		local requireEventMatching = isEventsTable and eventsCount > 0 or not isEventsTable -- check whether we need to verify event
 		local newEvents = requireEventMatching and {} or false -- if so, create table, otherwise make it boolean
 
-		if requireEventMatching then
+		if requireTypeMatching then
 
 			if isTypesTable then
 				local typeName = false -- save type name here
