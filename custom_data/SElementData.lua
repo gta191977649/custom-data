@@ -73,7 +73,7 @@ end
 ***************************************************\
 ]]
 
-function setCustomData(pElement, pKey, pValue, pType, pReceivers, pSyncer, pServerEvent, pBuffer, pTimeout)
+function setCustomData(pElement, pKey, pValue, pType, pReceivers, pSyncer, pEvent, pBuffer, pTimeout)
 	local cachedTable = pType == "local" and localData or pType == "synced" and syncedData or pType == "private" and privateData
 
 	if cachedTable then
@@ -161,9 +161,9 @@ function setCustomData(pElement, pKey, pValue, pType, pReceivers, pSyncer, pServ
 					if existingBatch then
 						local batchSize = #existingBatch + 1
 
-						existingBatch[batchSize] = {pElement, pKey, pType, pValue, pServerEvent, pSyncer, pReceivers}
+						existingBatch[batchSize] = {pElement, pKey, pType, pValue, pEvent, pSyncer, pReceivers}
 					else
-						targetBatch[pBuffer] = { {pElement, pKey, pType, pValue, pServerEvent, pSyncer, pReceivers} }
+						targetBatch[pBuffer] = { {pElement, pKey, pType, pValue, pEvent, pSyncer, pReceivers} }
 					end
 
 					return true
@@ -174,9 +174,9 @@ function setCustomData(pElement, pKey, pValue, pType, pReceivers, pSyncer, pServ
 					if existingBuffer then
 						local bufferSize = #existingBuffer + 1
 
-						existingBuffer[bufferSize] = {pElement, pKey, pType, pValue, pServerEvent, pSyncer}
+						existingBuffer[bufferSize] = {pElement, pKey, pType, pValue, pEvent, pSyncer}
 					else
-						targetBuffer[pBuffer] = { {pElement, pKey, pType, pValue, pServerEvent, pSyncer} }
+						targetBuffer[pBuffer] = { {pElement, pKey, pType, pValue, pEvent, pSyncer} }
 
 						setTimer(sendBufferWithData, pTimeout, 1, pBuffer, pType, pReceivers, pSyncer)
 					end
@@ -189,7 +189,7 @@ function setCustomData(pElement, pKey, pValue, pType, pReceivers, pSyncer, pServ
 				if validReceivers then
 					pSyncer = isElement(pSyncer) and pSyncer or playerElements
 
-					triggerClientEvent(pReceivers, "onClientReceiveData", pSyncer, false, pElement, pKey, pType, pValue, pServerEvent, pSyncer)
+					triggerClientEvent(pReceivers, "onClientReceiveData", pSyncer, false, pElement, pKey, pType, pValue, pEvent, pSyncer)
 
 					return true
 				end

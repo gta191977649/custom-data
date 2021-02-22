@@ -63,7 +63,7 @@ end
 ***************************************************\
 ]]
 
-function setCustomData(pElement, pKey, pValue, pType, pServerEvent, pSyncer)
+function setCustomData(pElement, pKey, pValue, pType, pEvent, pSyncer)
 	local cachedTable = pType == "local" and localData or pType == "synced" and syncedData or pType == "private" and privateData
 
 	if cachedTable then
@@ -80,7 +80,7 @@ function setCustomData(pElement, pKey, pValue, pType, pServerEvent, pSyncer)
 		if pValue ~= oldValue then -- if data isn't equal, process it
 			elementData[pKey] = pValue -- set our value
 
-			handleDataChange(pElement, pKey, pType, oldValue, pValue, pServerEvent, pSyncer) -- handle our functions (if there's any)
+			handleDataChange(pElement, pKey, pType, oldValue, pValue, pEvent, pSyncer) -- handle our functions (if there's any)
 
 			return true
 		end
@@ -95,12 +95,12 @@ end
 ***************************************************\
 ]]
 
-function addDataHandler(pElementTypes, pTypes, pKeys, pFunction, pServerEvent)
+function addDataHandler(pElementTypes, pTypes, pKeys, pFunction, pEvent)
 	local validElementTypes = type(pElementTypes) == "string" or type(pElementTypes) == "table" -- check if it's valid type
 	local validTypes = type(pTypes) == "string" or type(pTypes) == "table" -- check if it's valid type
 	local validKeys = type(pKeys) == "string" or type(pKeys) == "table" -- check if it's valid type
 	local validFunction = type(pFunction) == "function" -- check if it's valid type
-	local validServerEvents = type(pServerEvent) == "string" or type(pServerEvent) == "table" or not pServerEvent -- check if it's valid type
+	local validServerEvents = type(pEvent) == "string" or type(pEvent) == "table" or not pEvent -- check if it's valid type
 
 	if validElementTypes and validTypes and validKeys and validFunction and validServerEvents then -- if all correct
 		local elementType = false -- element type
@@ -117,8 +117,8 @@ function addDataHandler(pElementTypes, pTypes, pKeys, pFunction, pServerEvent)
 		local requireKeyMatching = isKeysTable and keysCount > 0 or not isKeysTable -- check whether we need to verify key
 		local newKeys = requireKeyMatching and {} or false -- if so, create table, otherwise make it boolean
 
-		local isEventsTable = type(pServerEvent) == "table" -- check if it's table
-		local eventsCount = isEventsTable and #pServerEvent or 0 -- if so, save events count - we will use them later
+		local isEventsTable = type(pEvent) == "table" -- check if it's table
+		local eventsCount = isEventsTable and #pEvent or 0 -- if so, save events count - we will use them later
 		local requireEventMatching = isEventsTable and eventsCount > 0 or not isEventsTable -- check whether we need to verify event
 		local newEvents = requireEventMatching and {} or false -- if so, create table, otherwise make it boolean
 
@@ -156,11 +156,11 @@ function addDataHandler(pElementTypes, pTypes, pKeys, pFunction, pServerEvent)
 				local eventName = false -- save event name here
 
 				for eventID = 1, eventsCount do -- loop through each event
-					eventName = pServerEvent[eventID] -- update variable
+					eventName = pEvent[eventID] -- update variable
 					newEvents[eventName] = true -- insert event name as index in new table
 				end
 			else -- otherwise
-				newEvents[pServerEvent] = true -- ditto, but we don't need loop here
+				newEvents[pEvent] = true -- ditto, but we don't need loop here
 			end
 		end
 
@@ -202,7 +202,7 @@ end
 ***************************************************\
 ]]
 
-function handleDataChange(pElement, pKey, pType, pOldValue, pNewValue, pServerEvent, pSyncer)
+function handleDataChange(pElement, pKey, pType, pOldValue, pNewValue, pEvent, pSyncer)
 	local isValidElement = isElement(pElement) -- we want element to exist at the time when handler was processed
 
 	if isValidElement then
@@ -233,11 +233,11 @@ function handleDataChange(pElement, pKey, pType, pOldValue, pNewValue, pServerEv
 
 				isTypeEqual = requireTypeMatching and handlerTypes[pType] or not requireTypeMatching and true or false -- verify whether type is required or not
 				isKeyEqual = requireKeyMatching and handlerKeys[pKey] or not requireKeyMatching and true or false -- verify whether key is required or not
-				isEventEqual = requireEventMatching and handlerEvents[pServerEvent] or not requireEventMatching and true or false -- verify whether event is required or not
+				isEventEqual = requireEventMatching and handlerEvents[pEvent] or not requireEventMatching and true or false -- verify whether event is required or not
 
 				if isTypeEqual and isKeyEqual and isEventEqual then -- if everything fine
 					handlerFunction = handlerData[4] -- get our data
-					handlerFunction(pElement, pKey, pType, pOldValue, pNewValue, pServerEvent, pSyncer) -- process function
+					handlerFunction(pElement, pKey, pType, pOldValue, pNewValue, pEvent, pSyncer) -- process function
 				end
 			end
 		end
@@ -250,7 +250,7 @@ end
 ***************************************************\
 ]]
 
-function onClientDataHandler(pElement, pKey, pType, pOldValue, pNewValue, pServerEvent, pSyncer)
+function onClientDataHandler(pElement, pKey, pType, pOldValue, pNewValue, pEvent, pSyncer)
 	print("onClientDataHandler got triggered at key: "..pKey.." ("..pType.." data) - syncer element: "..inspect(pSyncer))
 end
 addDataHandler("player", {}, {}, onClientDataHandler, "onClientKeyChanged") -- requirements to trigger function: elements need to be player, any data type and key name can trigger this, event needs to be equal to onClientKeyChanged
@@ -280,7 +280,7 @@ function onClientReceiveData(...)
 	local keyToSet = false -- declare it once for better readability, and later reuse it
 	local typeToSet = false -- declare it once for better readability, and later reuse it
 	local valueToSet = false -- declare it once for better readability, and later reuse it
-	local serverEventToSet = false -- declare it once for better readability, and later reuse it
+	local eventToSet = false -- declare it once for better readability, and later reuse it
 	local syncerToSet = false -- declare it once for better readability, and later reuse it
 
 	if isBuffer then -- if yes, then use loop to iterate over table
@@ -293,20 +293,20 @@ function onClientReceiveData(...)
 			keyToSet = bufferData[2] -- get our data
 			typeToSet = bufferData[3] -- get our data
 			valueToSet = bufferData[4] -- get our data
-			serverEventToSet = bufferData[5] -- get our data
+			eventToSet = bufferData[5] -- get our data
 			syncerToSet = bufferData[6] -- get our data
 
-			setCustomData(elementToSet, keyToSet, valueToSet, typeToSet, serverEventToSet, syncerToSet) -- set it locally
+			setCustomData(elementToSet, keyToSet, valueToSet, typeToSet, eventToSet, syncerToSet) -- set it locally
 		end
 	else -- otherwise process normally
 		elementToSet = dataFromServer[2] -- get our data
 		keyToSet = dataFromServer[3] -- get our data
 		typeToSet = dataFromServer[4]
 		valueToSet = dataFromServer[5] -- get our data
-		serverEventToSet = dataFromServer[6] -- get our data
+		eventToSet = dataFromServer[6] -- get our data
 		syncerToSet = dataFromServer[7] -- get our data
 
-		setCustomData(elementToSet, keyToSet, valueToSet, typeToSet, serverEventToSet, syncerToSet) -- set it locally
+		setCustomData(elementToSet, keyToSet, valueToSet, typeToSet, eventToSet, syncerToSet) -- set it locally
 	end
 end
 addEvent("onClientReceiveData", true)
