@@ -325,11 +325,15 @@ end
 
 function onServerPlayerReady()
 	if client then -- let's check if it's valid player - remember, do not use 'source'
-		setElementParent(client, playerElements) -- add player to our special group of "ready players"
-		
-		triggerClientEvent(client, "onClientDataSync", client, syncedData) -- we need to send copy of server-side data to client, otherwise client wouldn't have it
+		local playerParent = getElementParent(client) -- sanity check whether player have already parent
 
-		setCustomData(client, "Key", "Value", "synced", {client}, client, "onClientKeyChanged", false, 0)
+		if playerParent ~= playerElements then -- if so
+			setElementParent(client, playerElements) -- add player to our special group of "ready players"
+		
+			triggerClientEvent(client, "onClientDataSync", client, syncedData) -- we need to send copy of server-side data to client, otherwise client wouldn't have it
+
+			setCustomData(client, "Key", "Value", "synced", {client}, client, "onClientKeyChanged", false, 0)
+		end
 	end
 end
 addEvent("onServerPlayerReady", true)
